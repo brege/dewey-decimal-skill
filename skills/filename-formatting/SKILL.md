@@ -112,4 +112,21 @@ Include type in title:
 
 ## Forbidden Characters
 
-Only allowed: letters, numbers, dash, comma, period, apostrophe, parentheses, brackets, space.
+Do not use these characters in filenames:
+- `:` (colon) – convert to space-dash-space in titles (see Title Field rules above)
+- `\` (backslash)
+- `*` (asterisk)
+- `?` (question mark)
+- `"` (quote)
+- `<` `>` (angle brackets)
+- `|` (pipe)
+- ASCII control characters (U+0000–U+001F)
+- Trailing space
+- Trailing dot
+
+Remove forbidden characters from titles and other fields (except colons, which convert to ` - `).
+
+Examples:
+- `How Should a Person Be?` → `How Should a Person Be`
+- `Salt: A World History` → `Salt - A World History` (colon converts to dash)
+- `What's the "Real" Point*` → `What's the Real Point`
