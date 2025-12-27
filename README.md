@@ -10,26 +10,26 @@ A Claude agent to organize ebooks by the [Dewey Decimal](https://en.wikipedia.or
 
 ## Setup
 
-1. Copy `config.example.ini` to `config.ini` and edit the paths. The `[permissions]` section is currently unused; agent runs appeared to ignore a local `~/.claude/settings.local.json`.
-
+1. Copy `config.example.ini` to `config.ini` and edit the paths. [^1]
 2. Ensure your `arrivals_dir` and `books_dir` paths exist.
-
 3. Run `./install` to install the agents/skills into `~/.claude`.
 
-## Usage (Claude)
+## Usage
 
 Run the agent:
-
 ```bash
 claude --agent rename-books
 ```
 
 For single-file processing, specify the file path. For batch processing, point it at your arrivals directory.
 
-## Regenerating `data/codes.md`
+### History File
+
+The agent will store a history file documenting the before and after filenames, paths, and hash of each book it touches at `$arrivals_dir/renames.jsonl`.
+
+### Regenerating `data/codes.md`
 
 If you want to rebuild the Dewey code index:
-
 ```bash
 python main.py > data/codes.md
 ```
@@ -42,7 +42,7 @@ These are orchestrated together by `main.py` to create `data/codes.md`, which is
 
 > [!NOTE]
 > DDC is proprietary and maintained by OCLC. [OpenLibrary](https://openlibrary.org/)
-> exposes dewey_decimal_class in its Books API, but coverage appears uneven; I couldn’t find
+> exposes `dewey_decimal_class` in its Books API, but coverage appears uneven; I couldn’t find
 > a public, comprehensive ISBN↔DDC mapping. [WorldCat](https://www.worldcat.org/) doesn’t
 > provide a free bulk ISBN <-> DDC mapping.
 
@@ -52,3 +52,6 @@ Having already learned the topology of DDC codes with respect to library shelvin
 
 - Code - [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
 - Text - [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+
+[^1]: The `[permissions]` section is currently unused; agent runs appeared to ignore a local `~/.claude/settings.local.json`.
+
