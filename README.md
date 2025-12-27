@@ -50,6 +50,5 @@ Having already learned the topology of DDC codes with respect to library shelvin
 
 ## License
 
-Code - [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-
-Text -  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+- Code - [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
+- Text - [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
