@@ -1,6 +1,6 @@
 # Dewey Decimal Skill
 
-A Claude/Codex agent to organize ebooks by the [Dewey Decimal](https://en.wikipedia.org/wiki/Dewey_decimal_classification) system with OCD renaming rules through three distinct Skills:
+A Claude agent to organize ebooks by the [Dewey Decimal](https://en.wikipedia.org/wiki/Dewey_decimal_classification) system with OCD renaming rules through three distinct Skills. Codex Skills are brand new; supporting Codex would likely require some rework. See https://developers.openai.com/codex/skills for adapting these skills to Codex's format.
 
 | skill                | description                                                             |
 |:---------------------|:------------------------------------------------------------------------|
@@ -10,9 +10,29 @@ A Claude/Codex agent to organize ebooks by the [Dewey Decimal](https://en.wikipe
 
 ## Setup
 
-1. Copy `config.example.ini` to `config.ini` and edit the paths.
+1. Copy `config.example.ini` to `config.ini` and edit the paths. The `[permissions]` section is currently unused; agent runs appeared to ignore a local `~/.claude/settings.local.json`.
 
-2. Run `./install` to install the agents/skills into `~/.claude`.
+2. Ensure your `arrivals_dir` and `books_dir` paths exist.
+
+3. Run `./install` to install the agents/skills into `~/.claude`.
+
+## Usage (Claude)
+
+Run the agent:
+
+```bash
+claude --agent rename-books
+```
+
+For single-file processing, specify the file path. For batch processing, point it at your arrivals directory.
+
+## Regenerating `data/codes.md`
+
+If you want to rebuild the Dewey code index:
+
+```bash
+python main.py > data/codes.md
+```
 
 The Classification codes are indexed and cross-compared by these sources:
 - `lib/illinois.py` - https://www.library.illinois.edu/infosci/research/guides/dewey/
@@ -20,9 +40,11 @@ The Classification codes are indexed and cross-compared by these sources:
 
 These are orchestrated together by `main.py` to create `data/codes.md`, which is provided in this repo.
 
-> [!NOTE] It's surprising to learn that the Dewey Decimal system is proprietary. 
-
-[Worldcat](https://www.worldcat.org/) does not index DDC, nor does [OpenLibrary](https://openlibrary.org/). To my knowledge, there is no public repository linking ISBN <-> DDC.  
+> [!NOTE]
+> DDC is proprietary and maintained by OCLC. [OpenLibrary](https://openlibrary.org/)
+> exposes dewey_decimal_class in its Books API, but coverage appears uneven; I couldn’t find
+> a public, comprehensive ISBN↔DDC mapping. [WorldCat](https://www.worldcat.org/) doesn’t
+> provide a free bulk ISBN <-> DDC mapping.
 
 Having already learned the topology of DDC codes with respect to library shelving, categorizing by [Library of Congress](https://www.loc.gov/standards) coding is unnatural to me, as much as I would prefer myself and all libraries to adopt it.
 

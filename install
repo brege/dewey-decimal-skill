@@ -21,6 +21,9 @@ parse_ini() {
             key="${key##[[:space:]]}"
             value="${value%%[[:space:]]}"
             value="${value##[[:space:]]}"
+            if [[ "$value" =~ ^\".*\"$ || "$value" =~ ^\'.*\'$ ]]; then
+                value="${value:1:${#value}-2}"
+            fi
             value="${value/#\~/$HOME}"
             printf -v "CONFIG_${section^^}_${key^^}" '%s' "$value"
         fi
