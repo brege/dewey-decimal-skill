@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import io
-import os
 import re
-import subprocess
-import tempfile
-from typing import Dict, List, Sequence, Tuple
+from collections.abc import Sequence
 
 import requests
+from pypdf import PdfReader
 
 SOURCE_URL = "https://www.oclc.org/content/dam/oclc/dewey/ddc23-summaries.pdf"
-ENTRY_PATTERN = re.compile(r"(\d{3}(?:\.\d+)?)\s+(.+?)(?=(?:\s{2,}\d{3}(?:\.\d+)?\b)|$)")
+# Match each call number and its label until the next column-aligned call number.
+ENTRY_PATTERN = re.compile(
+    r"(\d{3}(?:\.\d+)?)\s+(.+?)(?=(?:\s{2,}\d{3}(?:\.\d+)?\b)|$)"
+)
 
 
 def fetch_pdf_bytes() -> bytes:
@@ -20,10 +21,6 @@ def fetch_pdf_bytes() -> bytes:
 
 
 def extract_pdf_text(pdf_bytes: bytes) -> str:
-    try:
-        from pypdf import PdfReader  # type: ignore
-    except ImportError:
-        return _extract_text_with_pdftotext(pdf_bytes)
     reader = PdfReader(io.BytesIO(pdf_bytes))
     page_texts = []
     for page in reader.pages:
@@ -35,26 +32,6 @@ def extract_pdf_text(pdf_bytes: bytes) -> str:
     return "\n".join(page_texts)
 
 
-def _extract_text_with_pdftotext(pdf_bytes: bytes) -> str:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as pdf_file:
-        pdf_file.write(pdf_bytes)
-        pdf_path = pdf_file.name
-    try:
-        completed_process = subprocess.run(
-            ["pdftotext", "-layout", pdf_path, "-"],
-            check=True,
-            text=True,
-            capture_output=True,
-        )
-    except FileNotFoundError as error:
-        raise RuntimeError(
-            "Neither pypdf nor the pdftotext command are available for PDF extraction"
-        ) from error
-    finally:
-        os.remove(pdf_path)
-    return completed_process.stdout
-
-
 def extract_third_summary_text(full_text: str) -> str:
     normalized = full_text.replace("\r\n", "\n").replace("\r", "\n")
     marker = "Third Summary"
@@ -64,8 +41,8 @@ def extract_third_summary_text(full_text: str) -> str:
     return normalized[start_index:]
 
 
-def parse_third_summary_entries(summary_text: str) -> List[Tuple[str, str]]:
-    entries: List[Tuple[str, str]] = []
+def parse_third_summary_entries(summary_text: str) -> list[tuple[str, str]]:
+    entries: list[tuple[str, str]] = []
     for raw_line in summary_text.splitlines():
         cleaned_line = raw_line.replace("\x0c", "").rstrip()
         if not cleaned_line.strip():
@@ -86,12 +63,12 @@ def parse_third_summary_entries(summary_text: str) -> List[Tuple[str, str]]:
     return entries
 
 
-def build_markdown(entries: Sequence[Tuple[str, str]]) -> str:
-    grouped: Dict[int, List[Tuple[str, str]]] = {index: [] for index in range(10)}
+def build_markdown(entries: Sequence[tuple[str, str]]) -> str:
+    grouped: dict[int, list[tuple[str, str]]] = {index: [] for index in range(10)}
     for number, description in entries:
         bucket_index = _bucket_for_number(number)
         grouped[bucket_index].append((number, description))
-    markdown_lines: List[str] = ["# Dewey Decimal System Call Numbers", ""]
+    markdown_lines: list[str] = ["# Dewey Decimal System Call Numbers", ""]
     for index in range(10):
         markdown_lines.append(f"## The {index:01d}00s")
         bucket_entries = grouped.get(index, [])
@@ -108,7 +85,7 @@ def _bucket_for_number(number: str) -> int:
     return int(padded) // 100
 
 
-def _entry_sort_key(number: str) -> Tuple[int, str]:
+def _entry_sort_key(number: str) -> tuple[int, str]:
     integer_part, _, fractional_part = number.partition(".")
     return int(integer_part), fractional_part
 

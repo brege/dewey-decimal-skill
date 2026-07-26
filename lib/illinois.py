@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Sequence, Tuple
+from collections.abc import Sequence
 
 import requests
 from bs4 import BeautifulSoup, Tag
-from bs4.element import NavigableString
+from bs4.element import NavigableString, PageElement
 
 SOURCE_URL = "https://www.library.illinois.edu/infosci/research/guides/dewey/"
 
@@ -16,12 +16,14 @@ def fetch_html_document() -> str:
     return response.text
 
 
-def extract_panel_sections(html_document: str) -> List[Tuple[str, List[Tuple[str, bool]]]]:
+def extract_panel_sections(
+    html_document: str,
+) -> list[tuple[str, list[tuple[str, bool]]]]:
     soup = BeautifulSoup(html_document, "html.parser")
     panels = soup.select("div#ui_lib_panel")
     if not panels:
         raise RuntimeError("Unable to locate Dewey panels in source document")
-    extracted_sections: List[Tuple[str, List[Tuple[str, bool]]]] = []
+    extracted_sections: list[tuple[str, list[tuple[str, bool]]]] = []
     for panel in panels:
         heading_element = panel.select_one("span.sh-font-semibold")
         if heading_element is None:
@@ -41,23 +43,32 @@ def _find_panel_content(panel: Tag) -> Tag:
 
 
 def _is_panel_content_division(element: Tag) -> bool:
-    for class_name in element.get("class", []):
+    class_names = element.get("class")
+    if not isinstance(class_names, list):
+        return False
+    for class_name in class_names:
+        if not isinstance(class_name, str):
+            continue
         if class_name.startswith("ui-lib-coll-pan-id") and "_" not in class_name:
             return True
     return False
 
 
-def _extract_lines_from_panel(content_division: Tag) -> List[Tuple[str, bool]]:
-    collected_entries: List[Tuple[str, bool]] = []
-    current_parts: List[str] = []
+def _extract_lines_from_panel(content_division: Tag) -> list[tuple[str, bool]]:
+    collected_entries: list[tuple[str, bool]] = []
+    current_parts: list[str] = []
 
-    def flush_current_entry(context: Optional[dict[str, int]]) -> None:
+    def flush_current_entry(context: dict[str, int] | None) -> None:
         if not current_parts:
             return
         combined_text = " ".join(current_parts)
         normalized_text = _normalize_text(combined_text)
         if normalized_text:
-            is_footnote = context is not None and context.get("line_index", 0) == 0
+            is_footnote = (
+                context is not None
+                and context.get("line_index", 0) == 0
+                and not normalized_text[0].isdigit()
+            )
             collected_entries.append((normalized_text, is_footnote))
             if context is not None:
                 context["line_index"] = context.get("line_index", 0) + 1
@@ -66,7 +77,7 @@ def _extract_lines_from_panel(content_division: Tag) -> List[Tuple[str, bool]]:
     def feed_fragment(fragment: str) -> None:
         current_parts.append(fragment)
 
-    def traverse(node, context: Optional[dict[str, int]]) -> None:
+    def traverse(node: PageElement, context: dict[str, int] | None) -> None:
         if isinstance(node, NavigableString):
             normalized_fragment = _normalize_text(str(node))
             if normalized_fragment:
@@ -96,33 +107,49 @@ def _extract_lines_from_panel(content_division: Tag) -> List[Tuple[str, bool]]:
 def _normalize_text(value: str) -> str:
     sanitized_value = value.replace("\xa0", " ")
     collapsed_whitespace = " ".join(sanitized_value.split())
+    # Close whitespace before punctuation introduced by split HTML text nodes.
     without_punctuation_gaps = re.sub(r"\s+([,.;:])", r"\1", collapsed_whitespace)
-    without_ordinal_gaps = re.sub(r"(\d+)\s+(st|nd|rd|th)\b", r"\1\2", without_punctuation_gaps, flags=re.IGNORECASE)
+    # Join ordinal suffixes that the source markup separates from their number.
+    without_ordinal_gaps = re.sub(
+        r"(\d+)\s+(st|nd|rd|th)\b",
+        r"\1\2",
+        without_punctuation_gaps,
+        flags=re.IGNORECASE,
+    )
     return without_ordinal_gaps
 
 
 def _slugify(value: str) -> str:
     lowered = value.lower()
+    # Convert source labels into stable ASCII footnote identifiers.
     replaced = re.sub(r"[^a-z0-9]+", "-", lowered)
     condensed = re.sub(r"-{2,}", "-", replaced)
     return condensed.strip("-")
 
 
-def build_markdown(sections: Sequence[Tuple[str, Sequence[Tuple[str, bool]]]]) -> str:
-    markdown_lines: List[str] = ["# Dewey Decimal System Call Numbers", ""]
-    footnote_definitions: List[str] = []
+def build_markdown(
+    sections: Sequence[tuple[str, Sequence[tuple[str, bool]]]],
+) -> str:
+    markdown_lines: list[str] = ["# Dewey Decimal System Call Numbers", ""]
+    footnote_definitions: list[str] = []
     identifier_counts: dict[str, int] = {}
     for heading_text, entries in sections:
         markdown_lines.append(f"## {heading_text}")
-        last_bullet_line_index: Optional[int] = None
-        last_bullet_text: Optional[str] = None
+        last_bullet_line_index: int | None = None
+        last_bullet_text: str | None = None
         for entry_text, is_footnote in entries:
             if is_footnote:
                 if last_bullet_line_index is None or last_bullet_text is None:
-                    raise RuntimeError("Footnote text appeared before any call number entry")
-                identifier = _derive_footnote_identifier(heading_text, last_bullet_text, identifier_counts)
+                    raise RuntimeError(
+                        "Footnote text appeared before any call number entry"
+                    )
+                identifier = _derive_footnote_identifier(
+                    heading_text, last_bullet_text, identifier_counts
+                )
                 reference_label = f"cite:{identifier}"
-                markdown_lines[last_bullet_line_index] = f"{markdown_lines[last_bullet_line_index]} [^{reference_label}]"
+                markdown_lines[last_bullet_line_index] = (
+                    f"{markdown_lines[last_bullet_line_index]} [^{reference_label}]"
+                )
                 footnote_definitions.append(f"[^{reference_label}]: cite: {entry_text}")
             else:
                 markdown_lines.append(f"- {entry_text}")
